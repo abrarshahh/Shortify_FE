@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store';
-import { useProjectDetails, useListUserAudio } from '@/features/projects/hooks';
+import { useProjectDetails, useListUserAudio, useUpdateProject } from '@/features/projects/hooks';
 import { useRenderStatus, useTriggerRender, useCancelRender } from '@/features/render/hooks';
 import { useEditorStore } from '@/features/editor/store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -51,6 +51,9 @@ export default function EditorWorkspacePage() {
   // Mutations
   const { mutate: triggerRender, isPending: isRendering } = useTriggerRender();
   const { mutate: cancelRender, isPending: isCancelling } = useCancelRender();
+  const { mutate: updateProject, isPending: isUpdatingProject } = useUpdateProject();
+  const [projectTitle, setProjectTitle] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
 
   // Left panel active tab state
   const [activeTab, setActiveTab] = useState<'clips' | 'music' | 'settings'>('clips');
@@ -90,6 +93,8 @@ export default function EditorWorkspacePage() {
   useEffect(() => {
     if (project) {
       setPrompt(project.title || '');
+      setProjectTitle(project.title || '');
+      setProjectDescription(project.description || '');
       if (project.target_duration) setDuration(project.target_duration as 15 | 30 | 60);
       if (project.style) setStyle(project.style);
       if (project.caption_style) setCaptionStyle(project.caption_style);
@@ -131,6 +136,28 @@ export default function EditorWorkspacePage() {
         },
       }
     );
+  };
+
+  const handleUpdateProjectSettings = () => {
+    if (!projectTitle.trim()) {
+      toast.error('Project title is required.');
+      return;
+    }
+    updateProject({
+      projectId,
+      data: {
+        title: projectTitle,
+        description: projectDescription,
+        target_duration: duration,
+        style,
+        caption_style: captionStyle
+      }
+    }, {
+      onSuccess: () => {
+        toast.success('Project details updated successfully');
+        refetchProject();
+      }
+    });
   };
 
   const handleCancelRender = () => {
@@ -301,6 +328,54 @@ export default function EditorWorkspacePage() {
 
             {activeTab === 'settings' && (
               <div className="space-y-6">
+                {/* Project Details Section */}
+                <div className="space-y-4 bg-zinc-950/20 p-4 border border-zinc-900 rounded-xl">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">Project Details</h4>
+                    <p className="text-[10px] text-zinc-500">Update project name and description metadata.</p>
+                  </div>
+                  <div className="space-y-3 font-sans">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Project Title</label>
+                      <input
+                        type="text"
+                        value={projectTitle}
+                        onChange={(e) => setProjectTitle(e.target.value)}
+                        placeholder="Project title..."
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Project Description</label>
+                      <textarea
+                        value={projectDescription}
+                        onChange={(e) => setProjectDescription(e.target.value)}
+                        placeholder="Project description..."
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-purple-500 min-h-[60px] resize-none"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleUpdateProjectSettings}
+                      disabled={isUpdatingProject}
+                      className="w-full py-2 text-xs border-zinc-800 hover:bg-zinc-900 transition flex items-center justify-center gap-1.5 font-semibold"
+                    >
+                      {isUpdatingProject ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Project Details'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-900 my-4" />
+
                 <div className="space-y-1">
                   <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider font-mono">Render Parameters</h4>
                   <p className="text-[11px] text-zinc-500">Adjust the timeline parameters to trigger a fresh render.</p>
@@ -380,8 +455,8 @@ export default function EditorWorkspacePage() {
 
                     <div className="flex items-center justify-between border-t border-zinc-900 pt-3">
                       <div className="flex flex-col">
-                        <span className="font-semibold text-zinc-305 text-zinc-300">Giphy Overlay Stickers</span>
-                        <span className="text-[10px] text-zinc-500">Download dynamic overlays dynamically.</span>
+                        <span className="font-semibold text-zinc-305 text-zinc-300">Curated Asset Overlays</span>
+                        <span className="text-[10px] text-zinc-500">Apply professional stickers and visual overlays.</span>
                       </div>
                       <input
                         type="checkbox"

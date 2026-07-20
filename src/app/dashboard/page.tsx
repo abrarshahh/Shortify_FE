@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useProjects, useDeleteProjectHard } from '@/features/projects/hooks';
+import { useProjects, useDeleteProjectHard, useUpdateProject } from '@/features/projects/hooks';
 import { useCancelRender } from '@/features/render/hooks';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,14 +22,30 @@ import {
   Loader2,
   RefreshCcw,
   XCircle,
+  Pencil,
+  X,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: projects, isLoading, refetch, isRefetching } = useProjects();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [status, setStatus] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const limit = 6;
+
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const { mutate: updateProject, isPending: isUpdating } = useUpdateProject();
+
+  const { data: projects, isLoading, refetch, isRefetching } = useProjects({
+    search: searchQuery || undefined,
+    status: status === 'all' ? undefined : status,
+    limit,
+    offset: (page - 1) * limit,
+  });
   const { mutate: deleteProject, isPending: isDeleting } = useDeleteProjectHard();
   const { mutate: cancelRender } = useCancelRender();
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -55,11 +71,32 @@ export default function DashboardPage() {
     }
   };
 
-  const filteredProjects = projects?.filter(
-    (p) =>
-      p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleEditClick = (project: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setEditingProject(project);
+    setEditTitle(project.title || '');
+    setEditDescription(project.description || '');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingProject) return;
+    updateProject({
+      projectId: editingProject.id,
+      data: {
+        title: editTitle,
+        description: editDescription
+      }
+    }, {
+      onSuccess: () => {
+        toast.success('Project details updated successfully');
+        setEditingProject(null);
+        refetch();
+      }
+    });
+  };
+
+  const filteredProjects = projects;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -132,15 +169,37 @@ export default function DashboardPage() {
       </div>
 
       {/* Search and stats bar */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-zinc-950/20 p-4 border border-zinc-900 rounded-2xl">
+        <div className="relative flex-1 max-w-md w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
             placeholder="Search projects..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-zinc-900/40 border-zinc-800 focus:border-zinc-700 text-zinc-200"
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            className="pl-10 bg-zinc-900/40 border-zinc-800 focus:border-zinc-700 text-zinc-200 text-xs py-2"
           />
+        </div>
+        <div className="flex items-center gap-3 self-end sm:self-auto w-full sm:w-auto">
+          <label className="text-xs text-zinc-500 font-semibold uppercase tracking-wider hidden sm:inline">Status:</label>
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+            className="bg-zinc-900/40 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs font-semibold text-zinc-300 focus:outline-none focus:border-zinc-700 hover:bg-zinc-900/60 transition w-full sm:w-auto cursor-pointer"
+          >
+            <option value="all" className="bg-zinc-950 text-zinc-300">All Statuses</option>
+            <option value="not_started" className="bg-zinc-950 text-zinc-300">Draft</option>
+            <option value="queued" className="bg-zinc-950 text-zinc-300">Queued</option>
+            <option value="running" className="bg-zinc-950 text-zinc-300">Rendering</option>
+            <option value="done" className="bg-zinc-950 text-zinc-300">Completed</option>
+            <option value="error" className="bg-zinc-950 text-zinc-300">Failed</option>
+            <option value="cancelled" className="bg-zinc-950 text-zinc-300">Cancelled</option>
+          </select>
         </div>
       </div>
 
@@ -279,6 +338,14 @@ export default function DashboardPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={(e) => handleEditClick(project, e)}
+                      className="text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 p-2 h-8"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={(e) => handleDelete(project.id, e)}
                       disabled={isDeleting}
                       className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 p-2 h-8"
@@ -290,6 +357,107 @@ export default function DashboardPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {projects && projects.length > 0 && (
+        <div className="flex items-center justify-between border-t border-zinc-900 pt-6 mt-4">
+          <span className="text-xs text-zinc-500 font-medium">
+            Page {page}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="text-xs border-zinc-800 hover:bg-zinc-900 transition px-4 py-2"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={!(projects && projects.length === limit)}
+              onClick={() => setPage((p) => p + 1)}
+              className="text-xs border-zinc-800 hover:bg-zinc-900 transition px-4 py-2"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-zinc-900 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">Edit Project Details</h3>
+                <p className="text-xs text-zinc-500 mt-1">Update your project's name and description.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProject(null)}
+                className="p-1.5 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-100 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4 font-sans">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Project Title</label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Enter project title..."
+                  className="bg-zinc-900/60 border-zinc-800 focus:border-zinc-700 text-zinc-200 text-xs py-2.5"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Description</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Enter project description..."
+                  className="w-full bg-zinc-900/60 border-zinc-850 border border-zinc-800 focus:border-zinc-700 text-zinc-200 text-xs rounded-lg px-3.5 py-2.5 min-h-[100px] resize-none focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-zinc-900 flex justify-end gap-2 bg-zinc-950/40">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setEditingProject(null)}
+                className="px-4 py-2 text-xs border-zinc-800 hover:bg-zinc-900 transition"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={isUpdating || !editTitle.trim()}
+                onClick={handleSaveEdit}
+                className="px-4 py-2 text-xs font-semibold"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store';
-import { LayoutDashboard, PlusCircle, Settings, LogOut, Video } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Settings, LogOut, Video, Film, Music } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -13,6 +13,8 @@ export default function Sidebar() {
   const menuItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Create Project', href: '/create', icon: PlusCircle },
+    { name: 'Media Library', href: '/library/media', icon: Film },
+    { name: 'Audio Library', href: '/library/audio', icon: Music },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

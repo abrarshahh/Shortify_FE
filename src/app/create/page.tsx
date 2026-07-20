@@ -342,8 +342,8 @@ export default function CreateProjectWizard() {
 
                     <div className="flex items-center justify-between border-t border-zinc-900 pt-3">
                       <div className="flex flex-col">
-                        <span className="font-semibold text-zinc-300">Giphy Overlay Stickers</span>
-                        <span className="text-[11px] text-zinc-500">Download dynamic overlays dynamically.</span>
+                        <span className="font-semibold text-zinc-300">Curated Asset Overlays</span>
+                        <span className="text-[11px] text-zinc-500">Apply professional stickers and visual overlays.</span>
                       </div>
                       <input
                         type="checkbox"
